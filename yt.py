@@ -106,7 +106,7 @@ class DiaryYouTubeWorkflow:
         try:
             model = os.getenv("MODEL")
             if not model:
-                return "MODEL environment variable not set.", STATIC_PROMPT
+                return "Cannot generate script: MODEL environment variable not set.", STATIC_PROMPT
 
             graph_payload = graph.to_dict() if hasattr(graph, "to_dict") else {"graph": str(graph)}
             prompt = f"{STATIC_PROMPT}\n\n{json.dumps(graph_payload, ensure_ascii=False)}"
@@ -121,12 +121,12 @@ class DiaryYouTubeWorkflow:
                 with urlopen(request, timeout=120) as response:
                     body = json.loads(response.read().decode("utf-8"))
                 if not body.get("response"):
-                    return "Ollama returned invalid response format.", prompt
+                    return "Ollama returned invalid response format: missing 'response' field.", prompt
                 return str(body["response"]), prompt
             except HTTPError as exc:
                 return f"Ollama HTTP error: {exc.code}", prompt
-            except URLError:
-                return "Ollama connection error.", prompt
+            except URLError as exc:
+                return f"Ollama connection error: {exc.reason}", prompt
             except TimeoutError:
                 return "Ollama request timed out.", prompt
             except json.JSONDecodeError:
@@ -138,6 +138,7 @@ class DiaryYouTubeWorkflow:
         """Render a simple video from the generated script."""
         method_name = "render_video"
         self._print_start(method_name)
+        text_path: Path | None = None
         try:
             video_path = self.project_root / "diary_movie.mp4"
             text_path = self.project_root / "diary_movie.txt"
@@ -166,12 +167,14 @@ class DiaryYouTubeWorkflow:
             subprocess.run(cmd, check=True, capture_output=True, text=True)
             return video_path
         except subprocess.CalledProcessError as exc:
-            print(f"ffmpeg failed: {exc.stderr.strip()}")
+            print(f"ffmpeg failed (code={exc.returncode}): {exc.stderr.strip()}")
             return None
         except OSError as exc:
             print(f"ffmpeg OS error: {exc}")
             return None
         finally:
+            if text_path and text_path.exists():
+                text_path.unlink(missing_ok=True)
             self._print_end(method_name)
 
     def upload_video(self, video_path: Path | None, script_text: str) -> dict[str, Any]:
@@ -203,8 +206,8 @@ class DiaryYouTubeWorkflow:
                 return {"status": "uploaded", "response": body}
             except HTTPError as exc:
                 return {"status": "failed", "reason": f"upload http error: {exc.code}"}
-            except URLError:
-                return {"status": "failed", "reason": "upload connection error"}
+            except URLError as exc:
+                return {"status": "failed", "reason": f"upload connection error: {exc.reason}"}
             except TimeoutError:
                 return {"status": "failed", "reason": "upload timeout"}
             except json.JSONDecodeError:
