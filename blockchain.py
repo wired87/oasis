@@ -123,7 +123,6 @@ class BlockChain:
             "quantity": float(quantity),
             "unit_price": metadata.get("price", 0.0),
             "total_price": round(float(quantity) * float(metadata.get("price", 0.0)), 8),
-            "payment_master_id": payment_master_id,
             "ordered_at": datetime.now(UTC).isoformat(),
         }
         if payment_master_id and payment_master_secret:
@@ -135,7 +134,9 @@ class BlockChain:
         return order
 
     def fetch_embeddings_from_pod(self, service_id: str) -> list[float]:
-        pod_url = os.getenv("EMBEDDINGS_POD_URL", "http://localhost:8080/embeddings")
+        pod_url = os.getenv("EMBEDDINGS_POD_URL")
+        if not pod_url:
+            return []
         query = urlencode({"service_id": service_id})
         response = self._safe_http_json(f"{pod_url}?{query}")
         embeddings = response.get("embeddings", []) if isinstance(response, dict) else []
@@ -144,10 +145,13 @@ class BlockChain:
         return []
 
     def register_contract(self, payload: dict[str, Any]) -> dict[str, Any]:
-        service_id = str(payload.get("service_id") or "unknown_service")
+        if not payload.get("service_id"):
+            raise ValueError("service_id is required in contract payload")
+        service_id = str(payload["service_id"])
         service_embeddings = payload.get("service_embeddings")
         if not isinstance(service_embeddings, list):
             service_embeddings = self.fetch_embeddings_from_pod(service_id)
+        service_embeddings = [float(x) for x in service_embeddings if isinstance(x, (int, float))]
         event_nodes = payload.get("event_nodes") if isinstance(payload.get("event_nodes"), list) else []
 
         contract = {
@@ -196,13 +200,24 @@ def ingest_service_data(service_payload: dict[str, dict[str, Any]]) -> list[dict
     return contracts
 
 
-def create_smart_contract(service_payload: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+def create_smart_contracts(service_payload: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
     return ingest_service_data(service_payload)
 
 
-def run(service_payload: dict[str, dict[str, Any]]) -> dict[str, Any]:
+def create_smart_contract(service_payload: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    # Compatibility entrypoint used by DataWorkflow optional dispatch.
+    contracts = create_smart_contracts(service_payload)
+    return contracts[0] if contracts else {}
+
+
+def setup_coin_and_contracts(service_payload: dict[str, dict[str, Any]]) -> dict[str, Any]:
     blockchain = BlockChain()
     blockchain.register_isys_coin()
     metadata = blockchain.get_isys_coin_metadata()
-    contracts = ingest_service_data(service_payload)
+    contracts = create_smart_contracts(service_payload)
     return {"coin_metadata": metadata, "contracts": contracts}
+
+
+def run(service_payload: dict[str, dict[str, Any]]) -> dict[str, Any]:
+    # Compatibility entrypoint used by DataWorkflow optional dispatch.
+    return setup_coin_and_contracts(service_payload)
