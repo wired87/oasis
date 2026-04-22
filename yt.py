@@ -106,7 +106,11 @@ class DiaryYouTubeWorkflow:
         try:
             model = os.getenv("MODEL")
             if not model:
-                return "Cannot generate script: MODEL environment variable not set.", STATIC_PROMPT
+                return (
+                    "Cannot generate script: MODEL environment variable is not configured. "
+                    "Please set MODEL to specify the Ollama model to use.",
+                    STATIC_PROMPT,
+                )
 
             graph_payload = graph.to_dict() if hasattr(graph, "to_dict") else {"graph": str(graph)}
             prompt = f"{STATIC_PROMPT}\n\n{json.dumps(graph_payload, ensure_ascii=False)}"
@@ -121,7 +125,11 @@ class DiaryYouTubeWorkflow:
                 with urlopen(request, timeout=120) as response:
                     body = json.loads(response.read().decode("utf-8"))
                 if not body.get("response"):
-                    return "Ollama returned invalid response format: missing 'response' field.", prompt
+                    return (
+                        "Ollama returned invalid response format: missing 'response' field. "
+                        "Please verify Ollama service status and API compatibility.",
+                        prompt,
+                    )
                 return str(body["response"]), prompt
             except HTTPError as exc:
                 return f"Ollama HTTP error: {exc.code}", prompt
