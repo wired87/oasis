@@ -170,7 +170,11 @@ class DataWorkflow:
             metadata = event.get("metadata", {})
             metadata_count = len(metadata) if isinstance(metadata, dict) else 0
             embedding = event.get("embedding", [])
-            embedding_norm = math.sqrt(sum(float(v) * float(v) for v in embedding)) if embedding else 0.0
+            embedding_norm = (
+                math.sqrt(sum(v * v for v in embedding if isinstance(v, (int, float))))
+                if embedding
+                else 0.0
+            )
             node_type_count = len({self.gutils.nodes[n].get("node_type") for n in self.gutils.neighbors(event_id)})
             serialized_size = len(json.dumps(event, sort_keys=True))
             relation_bonus = self._time_relation_bonus(event_id)
@@ -263,7 +267,7 @@ class DataWorkflow:
 
     def save_outputs(self, graph_obj: Any) -> tuple[Path, Path]:
         self.history_dir.mkdir(parents=True, exist_ok=True)
-        stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+        stamp = datetime.now(UTC).strftime("%Y%m%d_%H%M%S")
         graph_json = self.history_dir / f"graph_{stamp}.json"
         viz_file = self.project_root / f"graph_{stamp}.viz.json"
         if hasattr(graph_obj, "save_json"):
