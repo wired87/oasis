@@ -32,6 +32,11 @@ def _load_graph_factory() -> Any:
     return LocalGUtils
 
 
+def _escape_for_ffmpeg_filter(path: Path) -> str:
+    """Escape file path for ffmpeg drawtext filter."""
+    return str(path.resolve()).replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
+
+
 class DiaryYouTubeWorkflow:
     """Run the diary -> script -> video -> upload flow."""
 
@@ -101,7 +106,10 @@ class DiaryYouTubeWorkflow:
         try:
             model = os.getenv("MODEL")
             if not model:
-                return "MODEL environment variable is missing.", STATIC_PROMPT
+                return (
+                    "MODEL environment variable is not set. Please set MODEL to specify the Ollama model to use.",
+                    STATIC_PROMPT,
+                )
 
             graph_payload = graph.to_dict() if hasattr(graph, "to_dict") else {"graph": str(graph)}
             prompt = f"{STATIC_PROMPT}\n\n{json.dumps(graph_payload, ensure_ascii=False)}"
@@ -116,7 +124,7 @@ class DiaryYouTubeWorkflow:
                 with urlopen(request, timeout=120) as response:
                     body = json.loads(response.read().decode("utf-8"))
                 if not body.get("response"):
-                    return "Ollama response did not contain a 'response' value.", prompt
+                    return f"Ollama response missing 'response' field. Received keys: {list(body.keys())}", prompt
                 return str(body["response"]), prompt
             except HTTPError as exc:
                 return f"Ollama HTTP error: {exc.code}", prompt
@@ -141,8 +149,7 @@ class DiaryYouTubeWorkflow:
             if not ffmpeg:
                 return None
 
-            textfile = str(text_path.resolve())
-            textfile = textfile.replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
+            textfile = _escape_for_ffmpeg_filter(text_path)
             cmd = [
                 ffmpeg,
                 "-y",
@@ -160,7 +167,10 @@ class DiaryYouTubeWorkflow:
             ]
             subprocess.run(cmd, check=True, capture_output=True, text=True)
             return video_path
-        except (OSError, subprocess.CalledProcessError):
+        except subprocess.CalledProcessError as exc:
+            print(f"ffmpeg failed: {exc.stderr.strip()}")
+            return None
+        except OSError:
             return None
         finally:
             self._print_end(method_name)

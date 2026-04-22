@@ -22,6 +22,11 @@ class _MockHTTPResponse:
         return False
 
 
+class _MockGraph:
+    def to_dict(self):
+        return {"nodes": {}}
+
+
 class TestDiaryYouTubeWorkflow(unittest.TestCase):
     def test_load_youngest_diary_graph_uses_latest_file(self):
         with tempfile.TemporaryDirectory() as tmp_dir:
@@ -50,7 +55,7 @@ class TestDiaryYouTubeWorkflow(unittest.TestCase):
             workflow = DiaryYouTubeWorkflow(project_root=root)
 
             with patch.dict(os.environ, {"MODEL": "llama3.1"}, clear=False):
-                script, prompt = workflow.generate_script_with_ollama(type("Graph", (), {"to_dict": lambda _: {"nodes": {}}})())
+                script, prompt = workflow.generate_script_with_ollama(_MockGraph())
 
             self.assertEqual(script, "movie script")
             self.assertIn("Generate movie script from given diary graph", prompt)
