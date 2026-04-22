@@ -70,8 +70,8 @@ class Ledger:
             cls._accounts.clear()
 
     def check_create_isys_ledger(self) -> dict[str, Any]:
-        starting_balance_raw = self.user_info.get("balance", 0.0)
-        starting_balance = float(starting_balance_raw if starting_balance_raw is not None else 0)
+        starting_balance_value = self.user_info.get("balance", 0.0)
+        starting_balance = float(starting_balance_value) if starting_balance_value is not None else 0.0
         with self._account_lock:
             self._accounts.setdefault(self.uid, starting_balance)
         return {
@@ -139,7 +139,7 @@ class Ledger:
 
             order = self.blockchain.buy_isys_coin(quantity=amount_f)
             order_status = order.get("status")
-            status = str(order_status) if order_status is not None else "failed"
+            status = str(order_status) if order_status is not None else "unknown"
             if status == "completed":
                 self._accounts[self.uid] = round(self._accounts[self.uid] - amount_f, 8)
             balance = self._accounts.get(self.uid, 0.0)
