@@ -7,7 +7,7 @@ from ledger import Ledger
 
 class TestLedger(unittest.TestCase):
     def setUp(self):
-        Ledger._accounts.clear()
+        Ledger.reset_accounts()
 
     def test_setup_loads_user_from_duckdb_when_available(self):
         fake_conn = Mock()

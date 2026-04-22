@@ -15,6 +15,9 @@ except Exception:  # pragma: no cover - optional dependency
 
 
 class Ledger:
+    """User ledger with local account state and blockchain payout integration."""
+
+    # Fixed transfer fee (2% of transfer amount).
     FEE_RATE = 0.02
     _accounts: dict[str, float] = {}
     _account_lock = Lock()
@@ -58,8 +61,13 @@ class Ledger:
             conn.close()
 
     def _generate_deposit_address(self) -> str:
-        digest = hashlib.sha256(self.uid.encode("utf-8")).hexdigest()[:24]
+        digest = hashlib.sha256(self.uid.encode("utf-8")).hexdigest()
         return f"isys_{digest}"
+
+    @classmethod
+    def reset_accounts(cls) -> None:
+        with cls._account_lock:
+            cls._accounts.clear()
 
     def check_create_isys_ledger(self) -> dict[str, Any]:
         starting_balance_raw = self.user_info.get("balance", 0.0)
@@ -128,16 +136,12 @@ class Ledger:
             balance = self._accounts.get(self.uid, 0.0)
             if balance < amount_f:
                 raise ValueError("insufficient funds")
-            self._accounts[self.uid] = round(balance - amount_f, 8)
 
-        order = self.blockchain.buy_isys_coin(quantity=amount_f)
-        order_status = order.get("status")
-        status = str(order_status) if order_status is not None else "failed"
-        if status != "completed":
-            with self._account_lock:
-                self._accounts[self.uid] = round(self._accounts[self.uid] + amount_f, 8)
-
-        with self._account_lock:
+            order = self.blockchain.buy_isys_coin(quantity=amount_f)
+            order_status = order.get("status")
+            status = str(order_status) if order_status is not None else "failed"
+            if status == "completed":
+                self._accounts[self.uid] = round(self._accounts[self.uid] - amount_f, 8)
             balance = self._accounts.get(self.uid, 0.0)
 
         return {
