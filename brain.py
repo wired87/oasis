@@ -25,7 +25,9 @@ def ensure_brain_repo(project_root: str | Path | None = None) -> Path:
             check=True,
         )
     except subprocess.CalledProcessError as exc:
-        raise RuntimeError(f"Failed to clone brain repository from {BRAIN_REPO_URL}: {exc}") from exc
+        raise RuntimeError(
+            f"Failed to clone brain repository from {BRAIN_REPO_URL} (exit code {exc.returncode})."
+        ) from exc
     return brain_dir
 
 

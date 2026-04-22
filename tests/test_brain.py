@@ -2,6 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+import subprocess
 
 from brain import BRAIN_REPO_URL, ensure_brain_repo
 
@@ -42,6 +43,18 @@ class TestBrainEntryPoint(unittest.TestCase):
 
             with self.assertRaisesRegex(RuntimeError, "not a git repository"):
                 ensure_brain_repo(project_root=root)
+
+    def test_ensure_brain_repo_preserves_clone_failure_cause(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            expected = root / "brain"
+            clone_error = subprocess.CalledProcessError(128, ["git", "clone"])
+
+            with patch("brain.subprocess.run", side_effect=clone_error):
+                with self.assertRaisesRegex(RuntimeError, "exit code 128") as raised:
+                    ensure_brain_repo(project_root=root)
+
+            self.assertIs(raised.exception.__cause__, clone_error)
 
 
 if __name__ == "__main__":
