@@ -20,6 +20,7 @@ class Ledger:
     # Fixed transfer fee (2% of transfer amount).
     FEE_RATE = 0.02
     _accounts: dict[str, float] = {}
+    _reserved: dict[str, float] = {}
     _account_lock = Lock()
 
     def __init__(
@@ -54,7 +55,9 @@ class Ledger:
                 return fallback
             columns = [desc[0] for desc in conn.description]
             user_info = dict(zip(columns, rows[0]))
-            return {"uid": self.uid, **user_info}
+            if "uid" not in user_info:
+                user_info["uid"] = self.uid
+            return user_info
         except Exception:
             return fallback
         finally:
@@ -68,6 +71,7 @@ class Ledger:
     def reset_accounts(cls) -> None:
         with cls._account_lock:
             cls._accounts.clear()
+            cls._reserved.clear()
 
     def check_create_isys_ledger(self) -> dict[str, Any]:
         starting_balance_value = self.user_info.get("balance", 0.0)
@@ -136,12 +140,23 @@ class Ledger:
             balance = self._accounts.get(self.uid, 0.0)
             if balance < amount_f:
                 raise ValueError("insufficient funds")
+            self._accounts[self.uid] = round(balance - amount_f, 8)
+            self._reserved[self.uid] = round(self._reserved.get(self.uid, 0.0) + amount_f, 8)
 
+        try:
             order = self.blockchain.buy_isys_coin(quantity=amount_f)
-            order_status = order.get("status")
-            status = str(order_status) if order_status is not None else "unknown"
-            if status == "completed":
-                self._accounts[self.uid] = round(self._accounts[self.uid] - amount_f, 8)
+        except Exception:
+            with self._account_lock:
+                self._reserved[self.uid] = round(max(self._reserved.get(self.uid, 0.0) - amount_f, 0.0), 8)
+                self._accounts[self.uid] = round(self._accounts[self.uid] + amount_f, 8)
+            raise
+
+        order_status = order.get("status")
+        status = str(order_status) if order_status is not None else "unknown"
+        with self._account_lock:
+            self._reserved[self.uid] = round(max(self._reserved.get(self.uid, 0.0) - amount_f, 0.0), 8)
+            if status != "completed":
+                self._accounts[self.uid] = round(self._accounts[self.uid] + amount_f, 8)
             balance = self._accounts.get(self.uid, 0.0)
 
         return {
