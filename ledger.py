@@ -15,6 +15,7 @@ except Exception:  # pragma: no cover - optional dependency
 
 
 class Ledger:
+    FEE_RATE = 0.02
     _accounts: dict[str, float] = {}
     _account_lock = Lock()
 
@@ -86,14 +87,14 @@ class Ledger:
             "user_info": dict(self.user_info),
             "deposit_address": self.deposit_address,
             "balance": balance,
-            "fee_percent": 2.0,
+            "fee_percent": self.FEE_RATE * 100,
             "coin_symbol": "ISYSUSDT",
         }
 
     def transaction(self, receiver_id: str, amount: float) -> dict[str, Any]:
         receiver = str(receiver_id)
         amount_f = self._validate_positive_amount(amount)
-        fee = round(amount_f * 0.02, 8)
+        fee = round(amount_f * self.FEE_RATE, 8)
         total_debit = round(amount_f + fee, 8)
 
         with self._account_lock:
@@ -126,21 +127,23 @@ class Ledger:
             balance = self._accounts.get(self.uid, 0.0)
             if balance < amount_f:
                 raise ValueError("insufficient funds")
+            self._accounts[self.uid] = round(balance - amount_f, 8)
 
         order = self.blockchain.buy_isys_coin(quantity=amount_f)
-        if order.get("status") == "completed":
+        status = str(order.get("status") or "failed")
+        if status != "completed":
             with self._account_lock:
-                self._accounts[self.uid] = round(self._accounts[self.uid] - amount_f, 8)
-                balance = self._accounts[self.uid]
-        else:
-            with self._account_lock:
-                balance = self._accounts.get(self.uid, 0.0)
+                self._accounts[self.uid] = round(self._accounts.get(self.uid, 0.0) + amount_f, 8)
+
+        with self._account_lock:
+            balance = self._accounts.get(self.uid, 0.0)
 
         return {
             "uid": self.uid,
             "cashout_address": cashout_address,
             "amount": amount_f,
             "balance": balance,
+            "status": status,
             "order": order,
         }
 

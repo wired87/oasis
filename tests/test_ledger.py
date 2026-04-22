@@ -44,6 +44,7 @@ class TestLedger(unittest.TestCase):
 
         blockchain.buy_isys_coin.assert_called_once_with(quantity=10.0)
         self.assertEqual(result["cashout_address"], "isys_cashout_wallet")
+        self.assertEqual(result["status"], "completed")
         self.assertEqual(result["balance"], 10.0)
 
     def test_payout_requires_cashout_address(self):
@@ -52,6 +53,16 @@ class TestLedger(unittest.TestCase):
         with patch.dict(os.environ, {}, clear=True):
             with self.assertRaises(ValueError):
                 ledger.payout(1)
+
+    def test_failed_payout_refunds_balance(self):
+        blockchain = Mock()
+        blockchain.buy_isys_coin.return_value = {"status": "failed", "reason": "payment_error"}
+        ledger = Ledger(uid="u-4", blockchain=blockchain)
+        ledger.deposit(9)
+        with patch.dict(os.environ, {"CASHOUT_ADDRESS": "isys_cashout_wallet"}, clear=False):
+            result = ledger.payout(4)
+        self.assertEqual(result["status"], "failed")
+        self.assertEqual(result["balance"], 9.0)
 
 
 if __name__ == "__main__":
