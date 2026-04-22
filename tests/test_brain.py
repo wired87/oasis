@@ -12,6 +12,7 @@ class TestBrainEntryPoint(unittest.TestCase):
             root = Path(tmp_dir)
             existing = root / "brain"
             existing.mkdir()
+            (existing / ".git").mkdir()
 
             with patch("brain.subprocess.run") as mock_run:
                 result = ensure_brain_repo(project_root=root)
@@ -32,6 +33,15 @@ class TestBrainEntryPoint(unittest.TestCase):
                 ["git", "clone", BRAIN_REPO_URL, str(expected)],
                 check=True,
             )
+
+    def test_ensure_brain_repo_raises_for_non_repo_directory(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            root = Path(tmp_dir)
+            bad_dir = root / "brain"
+            bad_dir.mkdir()
+
+            with self.assertRaisesRegex(RuntimeError, "not a git repository"):
+                ensure_brain_repo(project_root=root)
 
 
 if __name__ == "__main__":
