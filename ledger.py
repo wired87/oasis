@@ -147,14 +147,14 @@ class Ledger:
             order = self.blockchain.buy_isys_coin(quantity=amount_f)
         except Exception:
             with self._account_lock:
-                self._reserved[self.uid] = round(max(self._reserved.get(self.uid, 0.0) - amount_f, 0.0), 8)
+                self._reserved[self.uid] = round(self._reserved.get(self.uid, 0.0) - amount_f, 8)
                 self._accounts[self.uid] = round(self._accounts[self.uid] + amount_f, 8)
             raise
 
         order_status = order.get("status")
         status = str(order_status) if order_status is not None else "unknown"
         with self._account_lock:
-            self._reserved[self.uid] = round(max(self._reserved.get(self.uid, 0.0) - amount_f, 0.0), 8)
+            self._reserved[self.uid] = round(self._reserved.get(self.uid, 0.0) - amount_f, 8)
             if status != "completed":
                 self._accounts[self.uid] = round(self._accounts[self.uid] + amount_f, 8)
             balance = self._accounts.get(self.uid, 0.0)
