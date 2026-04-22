@@ -35,7 +35,7 @@ class LocalGUtils:
 
     nodes: dict[str, dict[str, Any]] = field(default_factory=dict)
     edges: list[dict[str, str]] = field(default_factory=list)
-    _neighbors: dict[str, set[str]] = field(default_factory=lambda: defaultdict(set))
+    _neighbors: defaultdict[str, set[str]] = field(default_factory=lambda: defaultdict(set))
 
     def add_node(self, node_id: str, data: dict[str, Any]) -> None:
         self.nodes[node_id] = data
@@ -46,7 +46,7 @@ class LocalGUtils:
         self._neighbors[target].add(source)
 
     def neighbors(self, node_id: str) -> list[str]:
-        return sorted(self._neighbors.get(node_id, set()))
+        return sorted(self._neighbors[node_id])
 
     def nodes_by_type(self, node_type: str) -> list[str]:
         return sorted(
