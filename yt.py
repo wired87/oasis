@@ -100,10 +100,11 @@ class DiaryYouTubeWorkflow:
         self._print_start(method_name)
         try:
             model = os.getenv("MODEL")
+            if not model:
+                return "MODEL environment variable is missing.", STATIC_PROMPT
+
             graph_payload = graph.to_dict() if hasattr(graph, "to_dict") else {"graph": str(graph)}
             prompt = f"{STATIC_PROMPT}\n\n{json.dumps(graph_payload, ensure_ascii=False)}"
-            if not model:
-                return "MODEL environment variable is missing.", prompt
 
             request = Request(
                 "http://localhost:11434/api/generate",
@@ -114,9 +115,17 @@ class DiaryYouTubeWorkflow:
             try:
                 with urlopen(request, timeout=120) as response:
                     body = json.loads(response.read().decode("utf-8"))
-                return str(body.get("response") or "No script response received."), prompt
-            except (HTTPError, URLError, TimeoutError, json.JSONDecodeError):
-                return "Could not reach Ollama.", prompt
+                if not body.get("response"):
+                    return "Ollama response did not contain a 'response' value.", prompt
+                return str(body["response"]), prompt
+            except HTTPError as exc:
+                return f"Ollama HTTP error: {exc.code}", prompt
+            except URLError:
+                return "Ollama connection error.", prompt
+            except TimeoutError:
+                return "Ollama request timed out.", prompt
+            except json.JSONDecodeError:
+                return "Ollama returned non-JSON content.", prompt
         finally:
             self._print_end(method_name)
 
@@ -132,6 +141,8 @@ class DiaryYouTubeWorkflow:
             if not ffmpeg:
                 return None
 
+            textfile = str(text_path.resolve())
+            textfile = textfile.replace("\\", "\\\\").replace(":", "\\:").replace("'", "\\'")
             cmd = [
                 ffmpeg,
                 "-y",
@@ -140,7 +151,7 @@ class DiaryYouTubeWorkflow:
                 "-i",
                 "color=c=black:s=1280x720:d=8",
                 "-vf",
-                f"drawtext=textfile='{text_path}':fontcolor=white:fontsize=28:x=(w-text_w)/2:y=(h-text_h)/2",
+                f"drawtext=textfile={textfile}:fontcolor=white:fontsize=28:x=(w-text_w)/2:y=(h-text_h)/2",
                 "-c:v",
                 "libx264",
                 "-pix_fmt",
@@ -181,8 +192,14 @@ class DiaryYouTubeWorkflow:
                 with urlopen(request, timeout=120) as response:
                     body = json.loads(response.read().decode("utf-8"))
                 return {"status": "uploaded", "response": body}
-            except (HTTPError, URLError, TimeoutError, json.JSONDecodeError):
-                return {"status": "failed", "reason": "upload request failed"}
+            except HTTPError as exc:
+                return {"status": "failed", "reason": f"upload http error: {exc.code}"}
+            except URLError:
+                return {"status": "failed", "reason": "upload connection error"}
+            except TimeoutError:
+                return {"status": "failed", "reason": "upload timeout"}
+            except json.JSONDecodeError:
+                return {"status": "failed", "reason": "upload non-json response"}
         finally:
             self._print_end(method_name)
 
