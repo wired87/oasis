@@ -46,6 +46,8 @@ class LocalGUtils:
         self._neighbors[target].add(source)
 
     def neighbors(self, node_id: str) -> list[str]:
+        if node_id not in self._neighbors:
+            return []
         return sorted(self._neighbors[node_id])
 
     def nodes_by_type(self, node_type: str) -> list[str]:
