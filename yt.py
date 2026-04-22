@@ -106,10 +106,7 @@ class DiaryYouTubeWorkflow:
         try:
             model = os.getenv("MODEL")
             if not model:
-                return (
-                    "MODEL environment variable is not set. Please set MODEL to specify the Ollama model to use.",
-                    STATIC_PROMPT,
-                )
+                return "MODEL environment variable not set.", STATIC_PROMPT
 
             graph_payload = graph.to_dict() if hasattr(graph, "to_dict") else {"graph": str(graph)}
             prompt = f"{STATIC_PROMPT}\n\n{json.dumps(graph_payload, ensure_ascii=False)}"
@@ -124,7 +121,7 @@ class DiaryYouTubeWorkflow:
                 with urlopen(request, timeout=120) as response:
                     body = json.loads(response.read().decode("utf-8"))
                 if not body.get("response"):
-                    return f"Ollama response missing 'response' field. Received keys: {list(body.keys())}", prompt
+                    return "Ollama returned invalid response format.", prompt
                 return str(body["response"]), prompt
             except HTTPError as exc:
                 return f"Ollama HTTP error: {exc.code}", prompt
@@ -147,6 +144,7 @@ class DiaryYouTubeWorkflow:
             text_path.write_text(script_text, encoding="utf-8")
             ffmpeg = shutil.which("ffmpeg")
             if not ffmpeg:
+                print("ffmpeg not available; skipping video rendering.")
                 return None
 
             textfile = _escape_for_ffmpeg_filter(text_path)
@@ -170,7 +168,8 @@ class DiaryYouTubeWorkflow:
         except subprocess.CalledProcessError as exc:
             print(f"ffmpeg failed: {exc.stderr.strip()}")
             return None
-        except OSError:
+        except OSError as exc:
+            print(f"ffmpeg OS error: {exc}")
             return None
         finally:
             self._print_end(method_name)
