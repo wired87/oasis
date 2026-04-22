@@ -36,21 +36,21 @@ class DiaryYouTubeWorkflow:
     """Run the diary -> script -> video -> upload flow."""
 
     def __init__(self, project_root: str | Path | None = None) -> None:
-        # Setup workflow paths.
+        """Set workflow paths."""
         self.project_root = Path(project_root or Path(__file__).resolve().parent)
         self.data_dir = self.project_root / "data"
         self.graph = None
 
     def _print_start(self, method_name: str) -> None:
-        # Print start marker.
+        """Print start marker."""
         print(f"[START] {method_name}")
 
     def _print_end(self, method_name: str) -> None:
-        # Print end marker.
+        """Print end marker."""
         print(f"[END] {method_name}")
 
     def load_youngest_diary_graph(self) -> tuple[Any, Path]:
-        # Load youngest diary graph file from data dir.
+        """Load youngest diary graph file from data dir."""
         method_name = "load_youngest_diary_graph"
         self._print_start(method_name)
         try:
@@ -67,7 +67,7 @@ class DiaryYouTubeWorkflow:
             self._print_end(method_name)
 
     def _load_payload_into_graph(self, graph: Any, payload: Any) -> None:
-        # Hydrate graph object from json payload.
+        """Hydrate graph object from JSON payload."""
         if not isinstance(payload, dict):
             if hasattr(graph, "add_node"):
                 graph.add_node("diary:raw", {"node_type": "RAW", "content": payload})
@@ -95,7 +95,7 @@ class DiaryYouTubeWorkflow:
             graph.add_node("diary:payload", {"node_type": "PAYLOAD", "content": payload})
 
     def generate_script_with_ollama(self, graph: Any) -> tuple[str, str]:
-        # Build prompt and ask local Ollama.
+        """Build prompt and ask local Ollama."""
         method_name = "generate_script_with_ollama"
         self._print_start(method_name)
         try:
@@ -130,7 +130,7 @@ class DiaryYouTubeWorkflow:
             self._print_end(method_name)
 
     def render_video(self, script_text: str) -> Path | None:
-        # Render a simple video from the generated script.
+        """Render a simple video from the generated script."""
         method_name = "render_video"
         self._print_start(method_name)
         try:
@@ -166,7 +166,7 @@ class DiaryYouTubeWorkflow:
             self._print_end(method_name)
 
     def upload_video(self, video_path: Path | None, script_text: str) -> dict[str, Any]:
-        # Upload generated video payload to configured YT endpoint.
+        """Upload generated video payload to configured YT endpoint."""
         method_name = "upload_video"
         self._print_start(method_name)
         try:
@@ -204,7 +204,7 @@ class DiaryYouTubeWorkflow:
             self._print_end(method_name)
 
     def run(self) -> dict[str, Any]:
-        # Execute full workflow.
+        """Execute full workflow."""
         method_name = "run"
         self._print_start(method_name)
         try:
