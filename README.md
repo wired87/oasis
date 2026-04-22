@@ -21,4 +21,6 @@ The system frames transactions as energetic flow: every useful exchange strength
 In this concept, each transaction can increase the value of the underlying coin.
 
 ## Use
-Under construction.
+Clone and prepare the brain entry point:
+
+`python brain.py`
