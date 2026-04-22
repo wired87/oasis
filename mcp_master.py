@@ -88,7 +88,9 @@ class MCPMaster:
     def _score_sum(event_data: list[dict[str, Any]]) -> float:
         total = 0.0
         for node in event_data:
-            value = node.get("score", node.get("rank", 0))
+            value = node.get("score")
+            if not isinstance(value, (int, float)):
+                value = node.get("rank", 0)
             if isinstance(value, (int, float)):
                 total += float(value)
         return total
@@ -99,11 +101,15 @@ class MCPMaster:
         if duckdb is None:
             return True
 
-        db_path = Path(os.getenv("XTERNAL_ACCESS_DUCKDB") or self.project_root / "xternal_access.duckdb")
+        db_path = Path(
+            os.getenv("EXTERNAL_ACCESS_DUCKDB")
+            or os.getenv("XTERNAL_ACCESS_DUCKDB")
+            or self.project_root / "external_access.duckdb"
+        )
         with duckdb.connect(str(db_path)) as conn:
             conn.execute(
                 """
-                CREATE TABLE IF NOT EXISTS xternal_access_log (
+                CREATE TABLE IF NOT EXISTS external_access_log (
                     uid TEXT,
                     total_score DOUBLE,
                     requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -111,7 +117,7 @@ class MCPMaster:
                 """
             )
             conn.execute(
-                "INSERT INTO xternal_access_log (uid, total_score) VALUES (?, ?)",
+                "INSERT INTO external_access_log (uid, total_score) VALUES (?, ?)",
                 [uid, total_score],
             )
         return True
@@ -123,15 +129,24 @@ class MCPMaster:
 
         tool_fn = getattr(self.server, "tool", None)
         if callable(tool_fn):
-            try:
-                tool_fn(name=route_name, description=description)(handler)
-            except TypeError:
+            registration_calls = (
+                lambda: tool_fn(name=route_name, description=description)(handler),
+                lambda: tool_fn(route_name)(handler),
+            )
+            for register_call in registration_calls:
                 try:
-                    tool_fn(route_name)(handler)
-                except Exception:
-                    pass
-            except Exception:
-                pass
+                    register_call()
+                    break
+                except (TypeError, AttributeError):
+                    continue
+
+    def _build_route_handler(self, event_data: list[dict[str, Any]]) -> Callable[[str], list[dict[str, Any]]]:
+        def route(uid: str) -> list[dict[str, Any]]:
+            total_score = self._score_sum(event_data)
+            allowed = self._access_backend(uid, total_score)
+            return event_data if allowed else []
+
+        return route
 
     def create_new_routes(self, service_payload: dict[str, dict[str, Any]] | None = None) -> dict[str, Callable[..., Any]]:
         if service_payload:
@@ -147,12 +162,7 @@ class MCPMaster:
             route_name = f"{self._sanitize_service_id(service_id)}_{date_suffix}"
             event_data = self._extract_event_data(service_data)
             description = self._embedding_docstring(service_data.get("service_embeddings", ""))
-
-            def route(uid: str, _event_data: list[dict[str, Any]] = event_data) -> list[dict[str, Any]]:
-                total_score = self._score_sum(_event_data)
-                allowed = self._access_backend(uid, total_score)
-                return _event_data if allowed else []
-
+            route = self._build_route_handler(event_data)
             route.__name__ = route_name
             route.__doc__ = description
             self._register_with_server(route_name, route, description)
@@ -168,7 +178,7 @@ class MCPMaster:
             self.create_new_routes()
             scanned += 1
             if iterations is not None and scanned >= iterations:
-                break
+                return
             time.sleep(interval_seconds)
 
 

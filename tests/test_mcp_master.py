@@ -9,11 +9,17 @@ from mcp_master import MCPMaster
 
 class TestMCPMaster(unittest.TestCase):
     def test_create_route_from_service_payload(self):
-        master = MCPMaster(project_root=Path.cwd(), access_backend=lambda uid, total_score: uid == "user-1")
+        access_calls = []
+
+        def access_backend(uid, total_score):
+            access_calls.append((uid, total_score))
+            return uid == "user-1"
+
+        master = MCPMaster(project_root=Path.cwd(), access_backend=access_backend)
         payload = {
             "service:maps": {
                 "service_embeddings": [0.1, 0.2],
-                "event_nodes": [{"score": 1.5}, {"rank": 2.5}],
+                "event_nodes": [{"score": 1.5}, {"rank": 2.5}, {"score": 1.0, "rank": 9.0}, {"score": "x"}, {}],
             }
         }
 
@@ -25,6 +31,7 @@ class TestMCPMaster(unittest.TestCase):
         self.assertEqual(routes[route_name].__doc__, "[0.1, 0.2]")
         self.assertEqual(routes[route_name]("user-1"), payload["service:maps"]["event_nodes"])
         self.assertEqual(routes[route_name]("blocked"), [])
+        self.assertEqual(access_calls, [("user-1", 5.0), ("blocked", 5.0)])
 
     def test_create_route_from_env_payload(self):
         original = os.environ.get("MCP_ROUTE_TEST")
