@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import os
+import socket
 import shutil
 import subprocess
 from pathlib import Path
@@ -15,7 +16,7 @@ from urllib.request import Request, urlopen
 from data import LocalGUtils
 
 
-STATIC_PROMPT = "Generate movie script from given diary graph"
+STATIC_PROMPT = "Generate movie script from given diary graph with clear scenes and short dialogue."
 
 
 def _load_graph_factory() -> Any:
@@ -27,7 +28,7 @@ def _load_graph_factory() -> Any:
             return GUtils.G
         if callable(GUtils):
             return GUtils
-    except Exception:
+    except (ImportError, AttributeError, TypeError):
         pass
     return LocalGUtils
 
@@ -96,7 +97,7 @@ class DiaryYouTubeWorkflow:
                     continue
                 graph.add_edge(str(source), str(target), str(edge.get("relation", "related_to")))
 
-        if hasattr(graph, "nodes") and not getattr(graph, "nodes", {}):
+        if hasattr(graph, "nodes") and not graph.nodes:
             graph.add_node("diary:payload", {"node_type": "PAYLOAD", "content": payload})
 
     def generate_script_with_ollama(self, graph: Any) -> tuple[str, str]:
@@ -135,7 +136,7 @@ class DiaryYouTubeWorkflow:
                 return f"Ollama HTTP error: {exc.code}", prompt
             except URLError as exc:
                 return f"Ollama connection error: {exc.reason}", prompt
-            except TimeoutError:
+            except socket.timeout:
                 return "Ollama request timed out.", prompt
             except json.JSONDecodeError:
                 return "Ollama returned non-JSON content.", prompt
@@ -216,7 +217,7 @@ class DiaryYouTubeWorkflow:
                 return {"status": "failed", "reason": f"upload http error: {exc.code}"}
             except URLError as exc:
                 return {"status": "failed", "reason": f"upload connection error: {exc.reason}"}
-            except TimeoutError:
+            except socket.timeout:
                 return {"status": "failed", "reason": "upload timeout"}
             except json.JSONDecodeError:
                 return {"status": "failed", "reason": "upload non-json response"}

@@ -63,6 +63,14 @@ class TestDiaryYouTubeWorkflow(unittest.TestCase):
             request_data = json.loads(called_request.data.decode("utf-8"))
             self.assertEqual(request_data["model"], "llama3.1")
 
+    def test_generate_script_with_ollama_requires_model_env(self):
+        with tempfile.TemporaryDirectory() as tmp_dir:
+            workflow = DiaryYouTubeWorkflow(project_root=Path(tmp_dir))
+            with patch.dict(os.environ, {}, clear=True):
+                script, prompt = workflow.generate_script_with_ollama(_MockGraph())
+        self.assertIn("MODEL environment variable", script)
+        self.assertIn("Generate movie script", prompt)
+
 
 if __name__ == "__main__":
     unittest.main()
