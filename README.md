@@ -18,7 +18,7 @@ This reduces friction and maximizes productivity for non-technical and technical
 
 ## Value & Economy
 The system frames transactions as energetic flow: every useful exchange strengthens the network.  
-In this concept, each transaction can increase the value of the overlying coin.
+In this concept, each transaction can increase the value of the underlying coin.
 
 ## Use
 Under construction.
