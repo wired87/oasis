@@ -28,52 +28,7 @@ from urllib.request import Request, urlopen
 
 PORTABILITY_URL = "https://dataportability.googleapis.com/v1/portabilityArchive:initiate"
 
-
-@dataclass
-class LocalGUtils:
-    """Minimal fallback graph utility with a GUtils-like interface."""
-
-    nodes: dict[str, dict[str, Any]] = field(default_factory=dict)
-    edges: list[dict[str, str]] = field(default_factory=list)
-    _neighbors: defaultdict[str, set[str]] = field(default_factory=lambda: defaultdict(set))
-
-    def add_node(self, node_id: str, data: dict[str, Any]) -> None:
-        self.nodes[node_id] = data
-
-    def add_edge(self, source: str, target: str, relation: str) -> None:
-        self.edges.append({"source": source, "target": target, "relation": relation})
-        self._neighbors[source].add(target)
-        self._neighbors[target].add(source)
-
-    def neighbors(self, node_id: str) -> list[str]:
-        if node_id not in self._neighbors:
-            return []
-        return sorted(self._neighbors[node_id])
-
-    def nodes_by_type(self, node_type: str) -> list[str]:
-        return sorted(
-            node_id
-            for node_id, payload in self.nodes.items()
-            if payload.get("node_type") == node_type
-        )
-
-    def to_dict(self) -> dict[str, Any]:
-        return {"nodes": self.nodes, "edges": self.edges}
-
-    def save_json(self, path: Path) -> None:
-        path.write_text(json.dumps(self.to_dict(), indent=2), encoding="utf-8")
-
-    def save_visualization(self, path: Path) -> None:
-        path.write_text(json.dumps(self.edges, indent=2), encoding="utf-8")
-
-
-def _load_gutils() -> type:
-    try:
-        from firegraph import GUtils  # type: ignore
-
-        return GUtils
-    except Exception:
-        return LocalGUtils
+from brain.firegraph.graph import GUtils  # type: ignore
 
 
 class DataWorkflow:
