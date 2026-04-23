@@ -72,12 +72,12 @@ def _load_gutils() -> type:
         from brain.firegraph import GUtils  # type: ignore
 
         return GUtils
-    except Exception:
+    except (ImportError, AttributeError, TypeError):
         try:
             from firegraph import GUtils  # type: ignore
 
             return GUtils
-        except Exception:
+        except (ImportError, AttributeError, TypeError):
             return LocalGUtils
 
 

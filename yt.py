@@ -21,21 +21,26 @@ STATIC_PROMPT = "Generate movie script from given diary graph with clear scenes 
 
 def _load_graph_factory() -> Any:
     """Load GUtils (or fallback) constructor."""
+    def _resolve_graph_constructor(gutils: Any) -> Any | None:
+        if hasattr(gutils, "G") and callable(gutils.G):
+            return gutils.G
+        if callable(gutils):
+            return gutils
+        return None
+
     try:
         from brain.firegraph import GUtils  # type: ignore
 
-        if hasattr(GUtils, "G") and callable(GUtils.G):
-            return GUtils.G
-        if callable(GUtils):
-            return GUtils
+        ctor = _resolve_graph_constructor(GUtils)
+        if ctor is not None:
+            return ctor
     except (ImportError, AttributeError, TypeError):
         try:
             from firegraph import GUtils  # type: ignore
 
-            if hasattr(GUtils, "G") and callable(GUtils.G):
-                return GUtils.G
-            if callable(GUtils):
-                return GUtils
+            ctor = _resolve_graph_constructor(GUtils)
+            if ctor is not None:
+                return ctor
         except (ImportError, AttributeError, TypeError):
             pass
     return LocalGUtils
