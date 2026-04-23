@@ -24,3 +24,7 @@ In this concept, each transaction can increase the value of the underlying coin.
 Clone and prepare the brain entry point:
 
 `python brain.py`
+
+Run with Docker:
+
+`docker build -t oasis . && docker run --rm oasis`
