@@ -6,7 +6,7 @@ Dev TODOs:
 - Optionally provide MODEL for Ollama (for example: llama3.1).
 - Ensure local Ollama server is running on http://localhost:11434 for LLM summaries.
 - Optionally provide `mcp_master.py` and `blockchain.py` workflow modules in project root.
-- Optionally install/clone wired87/firegraph so GUtils can be imported directly.
+- Optionally install/clone wired87/brain so GUtils can be imported from brain.firegraph.
 """
 
 from __future__ import annotations
@@ -69,11 +69,16 @@ class LocalGUtils:
 
 def _load_gutils() -> type:
     try:
-        from firegraph import GUtils  # type: ignore
+        from brain.firegraph import GUtils  # type: ignore
 
         return GUtils
     except Exception:
-        return LocalGUtils
+        try:
+            from firegraph import GUtils  # type: ignore
+
+            return GUtils
+        except Exception:
+            return LocalGUtils
 
 
 class DataWorkflow:
