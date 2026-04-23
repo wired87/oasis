@@ -7,6 +7,7 @@ Dev TODOs:
 - Ensure local Ollama server is running on http://localhost:11434 for LLM summaries.
 - Optionally provide `mcp_master.py` and `blockchain.py` workflow modules in project root.
 - Optionally install/clone wired87/brain so GUtils can be imported from brain.firegraph.
+- Backward-compatible fallback also supports importing GUtils from firegraph.
 """
 
 from __future__ import annotations

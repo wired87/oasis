@@ -22,6 +22,7 @@ STATIC_PROMPT = "Generate movie script from given diary graph with clear scenes 
 def _load_graph_factory() -> Any:
     """Load GUtils (or fallback) constructor."""
     def _resolve_graph_constructor(gutils: Any) -> Any | None:
+        """Return a graph constructor from GUtils, supporting `GUtils.G` and callable `GUtils`."""
         if hasattr(gutils, "G") and callable(gutils.G):
             return gutils.G
         if callable(gutils):
